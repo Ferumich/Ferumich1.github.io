@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paneles Solares en Morelia</title>
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <style>
+    body {
+      background-color: #222;
+      color: #ddd;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1, h3 {
+      text-align: center;
+    }
+    label, p {
+      margin: 10px 0;
+    }
+    input[type=range], input[type=number] {
+      width: 100%;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .plot {
+      margin-top: 30px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px 0;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #juegoPelotas {
+      margin-top: 40px;
+      padding: 20px;
+      background-color: #333;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .resultado {
+      font-size: 1.5rem;
+      margin-top: 10px;
+    }
+    #contadorJuego {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dimensionamiento de Paneles Solares para Morelia</h1>
+    <p>Simulación para julio usando datos realistas de radiación solar y consumo.</p>
+
+    <button onclick="mostrarJuego()">🎲 Jugar con Pelotas</button>
+
+    <label for="consumoMensual">Consumo mensual (kWh):</label>
+    <input type="number" id="consumoMensual" value="400" min="100" max="2000">
+
+    <label for="costo">Costo por panel (MXN): <span id="valor-costo">10000</span></label>
+    <input type="range" min="6000" max="15000" step="500" value="10000" id="costo" oninput="actualizarValor('costo')">
+
+    <label for="precio">Precio electricidad (MXN/kWh): <span id="valor-precio">1.50</span></label>
+    <input type="range" min="0.5" max="3.0" step="0.1" value="1.5" id="precio" oninput="actualizarValor('precio')">
+
+    <label for="degradacion">Degradación anual del panel (%): <span id="valor-degradacion">0.5</span>%</label>
+    <input type="range" min="0" max="5" step="0.1" value="0.5" id="degradacion" oninput="actualizarValor('degradacion')">
+
+    <button onclick="simular()">Actualizar Simulación</button>
+
+    <div id="resultados"></div>
+
+    <div class="plot" id="plotRadiacion"></div>
+    <div class="plot" id="plotConsumo"></div>
+    <div class="plot" id="plotRazon"></div>
+    <div class="plot" id="plotSerie"></div>
+
+    <div id="juegoPelotas" style="display: none;">
+      <h3>🎯 Juego de la Pelota</h3>
+      <p>Haz clic en el botón para extraer una pelota:</p>
+      <button onclick="sacarPelota()">Sacar Pelota</button>
+      <div class="resultado" id="resultadoJuego">Esperando extracción...</div>
+      <div id="contadorJuego">Rojo: 0 | Azul: 0 | Verde: 0</div>
+    </div>
+  </div>
+
+  <script>
+    function actualizarValor(id) {
+      const val = document.getElementById(id).value;
+      document.getElementById('valor-' + id).textContent = id === 'degradacion' ? val : parseFloat(val).toFixed(2);
+    }
+
+    function generarNormal(n, media, sd) {
+      let out = [];
+      for (let i = 0; i < n; i++) {
+        let u = Math.random();
+        let v = Math.random();
+        let z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+        out.push(Math.max(0, media + z * sd));
+      }
+      return out;
+    }
+
+    function simular() {
+      let consumoMensual = parseFloat(document.getElementById("consumoMensual").value);
+      let consumoDiario = consumoMensual / 30;
+      let costoPanel = parseFloat(document.getElementById("costo").value);
+      let precioKwh = parseFloat(document.getElementById("precio").value);
+      let degradacion = parseFloat(document.getElementById("degradacion").value);
+
+      document.getElementById("valor-costo").textContent = costoPanel;
+      document.getElementById("valor-precio").textContent = precioKwh.toFixed(2);
+      document.getElementById("valor-degradacion").textContent = degradacion;
+
+      let n = 1000;
+      let radiacion = generarNormal(n, 6, 0.5);
+      let consumo = generarNormal(n, consumoDiario, 0.8);
+
+      let area = 1.6;
+      let eficiencia = 0.18;
+      let perdidas = 0.8;
+
+      let energiaPanel = radiacion.map(r => r * area * eficiencia * perdidas);
+      let razon = consumo.map((c, i) => c / energiaPanel[i]);
+      let razonOrdenada = [...razon].sort((a,b) => a - b);
+      let N = Math.ceil(razonOrdenada[Math.floor(0.95 * n)]);
+
+      let costoTotal = N * costoPanel;
+      let ahorroMensual = consumoMensual * precioKwh;
+
+      let años = 0;
+      let energiaAnual = promedio(energiaPanel) * 365;
+      let energiaPanelAnual = energiaAnual * N;
+      let costoAnual = ahorroMensual * 12;
+      let totalAhorro = 0;
+
+      while (totalAhorro < costoTotal && años < 50) {
+        let factor = Math.pow(1 - degradacion / 100, años);
+        totalAhorro += costoAnual * factor;
+        años++;
+      }
+
+      let panelKwhMensual = promedio(energiaPanel) * 30;
+      let panelesReales = Math.ceil(consumoMensual / panelKwhMensual);
+
+      document.getElementById("resultados").innerHTML = `
+        <p>Paneles necesarios (95% de confianza): <strong>${N}</strong></p>
+        <p>Paneles necesarios (estimación directa): <strong>${panelesReales}</strong></p>
+        <p>Costo total estimado: <strong>$${costoTotal.toFixed(2)} MXN</strong></p>
+        <p>Ahorro mensual estimado: <strong>$${ahorroMensual.toFixed(2)} MXN</strong></p>
+        <p>Tiempo de recuperación (considerando degradación): <strong>${años} años</strong></p>
+      `;
+
+      graficarHistograma(radiacion, 'plotRadiacion', 'Radiación (kWh/m²/día)');
+      graficarHistograma(consumo, 'plotConsumo', 'Consumo (kWh/día)');
+      graficarHistograma(razon, 'plotRazon', 'Paneles requeridos por día');
+      graficarSerie(radiacion.slice(0, 31), consumo.slice(0, 31), energiaPanel.slice(0, 31));
+    }
+
+    function promedio(arr) {
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    function graficarHistograma(datos, id, titulo) {
+      Plotly.newPlot(id, [{
+        x: datos,
+        type: 'histogram',
+        marker: {color: '#29b6f6'}
+      }], {
+        title: titulo,
+        paper_bgcolor: '#222',
+        plot_bgcolor: '#222',
+        font: {color: '#ddd'}
+      });
+    }
+
+    function graficarSerie(radiacion, consumo, energia) {
+      let dias = [...Array(radiacion.length).keys()].map(i => i + 1);
+      Plotly.newPlot('plotSerie', [
+        {x: dias, y: radiacion, name: 'Radiación', type: 'scatter'},
+        {x: dias, y: consumo, name: 'Consumo', type: 'scatter'},
+        {x: dias, y: energia, name: 'Generación', type: 'scatter'}
+      ], {
+        title: 'Serie de tiempo (31 días)',
+        paper_bgcolor: '#222',
+        plot_bgcolor: '#222',
+        font: {color: '#ddd'},
+        xaxis: {title: 'Día'},
+        yaxis: {title: 'kWh/día'}
+      });
+    }
+
+    // Juego de la Pelota
+    let rojas = 0, azules = 0, verdes = 0;
+
+    function mostrarJuego() {
+      document.getElementById("juegoPelotas").style.display = "block";
+      window.scrollTo({ top: document.getElementById("juegoPelotas").offsetTop, behavior: 'smooth' });
+    }
+
+    function sacarPelota() {
+      const r = Math.random();
+      let color = "";
+
+      if (r < 0.3) {
+        color = "🔴 Pelota ROJA";
+        rojas++;
+      } else if (r < 0.5) {
+        color = "🔵 Pelota AZUL";
+        azules++;
+      } else {
+        color = "🟢 Pelota VERDE";
+        verdes++;
+      }
+
+      document.getElementById("resultadoJuego").textContent = color;
+      document.getElementById("contadorJuego").textContent =
+        `Rojo: ${rojas} | Azul: ${azules} | Verde: ${verdes}`;
+    }
+
+    simular(); // Ejecutar al cargar
+  </script>
+</body>
+</html>
