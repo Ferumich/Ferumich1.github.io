@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paneles Solares en Morelia</title>
+  <title>Paneles y Juego</title>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
     body {
@@ -31,7 +30,7 @@
     }
     button {
       padding: 10px 20px;
-      margin: 10px 0;
+      margin: 10px 10px 10px 0;
       background-color: #4CAF50;
       color: white;
       border: none;
@@ -41,51 +40,51 @@
     button:hover {
       background-color: #45a049;
     }
-    #juegoPelotas {
+    #juegoPelotas, #calculadoraPaneles {
       margin-top: 40px;
       padding: 20px;
       background-color: #333;
       border-radius: 10px;
-      text-align: center;
+      display: none;
     }
     .resultado {
       font-size: 1.5rem;
-      margin-top: 10px;
-    }
-    #contadorJuego {
       margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Dimensionamiento de Paneles Solares para Morelia</h1>
-    <p>Simulación para julio usando datos realistas de radiación solar y consumo.</p>
+    <h1>Elige una opción</h1>
+    <button onclick="mostrarSeccion('calculadoraPaneles')">☀️ Calculadora de Paneles Solares</button>
+    <button onclick="mostrarSeccion('juegoPelotas')">🎲 Juego de Pelotas</button>
 
-    <button onclick="mostrarJuego()">🎲 Jugar con Pelotas</button>
+    <div id="calculadoraPaneles">
+      <h3>☀️ Calculadora de Paneles Solares para Morelia</h3>
+      <p>Simulación para julio usando datos realistas de radiación solar y consumo.</p>
 
-    <label for="consumoMensual">Consumo mensual (kWh):</label>
-    <input type="number" id="consumoMensual" value="400" min="100" max="2000">
+      <label for="consumoMensual">Consumo mensual (kWh):</label>
+      <input type="number" id="consumoMensual" value="400" min="100" max="2000">
 
-    <label for="costo">Costo por panel (MXN): <span id="valor-costo">10000</span></label>
-    <input type="range" min="6000" max="15000" step="500" value="10000" id="costo" oninput="actualizarValor('costo')">
+      <label for="costo">Costo por panel (MXN): <span id="valor-costo">10000</span></label>
+      <input type="range" min="6000" max="15000" step="500" value="10000" id="costo" oninput="actualizarValor('costo')">
 
-    <label for="precio">Precio electricidad (MXN/kWh): <span id="valor-precio">1.50</span></label>
-    <input type="range" min="0.5" max="3.0" step="0.1" value="1.5" id="precio" oninput="actualizarValor('precio')">
+      <label for="precio">Precio electricidad (MXN/kWh): <span id="valor-precio">1.50</span></label>
+      <input type="range" min="0.5" max="3.0" step="0.1" value="1.5" id="precio" oninput="actualizarValor('precio')">
 
-    <label for="degradacion">Degradación anual del panel (%): <span id="valor-degradacion">0.5</span>%</label>
-    <input type="range" min="0" max="5" step="0.1" value="0.5" id="degradacion" oninput="actualizarValor('degradacion')">
+      <label for="degradacion">Degradación anual del panel (%): <span id="valor-degradacion">0.5</span>%</label>
+      <input type="range" min="0" max="5" step="0.1" value="0.5" id="degradacion" oninput="actualizarValor('degradacion')">
 
-    <button onclick="simular()">Actualizar Simulación</button>
+      <button onclick="simular()">Actualizar Simulación</button>
 
-    <div id="resultados"></div>
+      <div id="resultados"></div>
+      <div class="plot" id="plotRadiacion"></div>
+      <div class="plot" id="plotConsumo"></div>
+      <div class="plot" id="plotRazon"></div>
+      <div class="plot" id="plotSerie"></div>
+    </div>
 
-    <div class="plot" id="plotRadiacion"></div>
-    <div class="plot" id="plotConsumo"></div>
-    <div class="plot" id="plotRazon"></div>
-    <div class="plot" id="plotSerie"></div>
-
-    <div id="juegoPelotas" style="display: none;">
+    <div id="juegoPelotas">
       <h3>🎯 Juego de la Pelota</h3>
       <p>Haz clic en el botón para extraer una pelota:</p>
       <button onclick="sacarPelota()">Sacar Pelota</button>
@@ -95,6 +94,14 @@
   </div>
 
   <script>
+    function mostrarSeccion(id) {
+      document.getElementById('calculadoraPaneles').style.display = 'none';
+      document.getElementById('juegoPelotas').style.display = 'none';
+      document.getElementById(id).style.display = 'block';
+
+      if (id === 'calculadoraPaneles') simular();
+    }
+
     function actualizarValor(id) {
       const val = document.getElementById(id).value;
       document.getElementById('valor-' + id).textContent = id === 'degradacion' ? val : parseFloat(val).toFixed(2);
@@ -117,10 +124,6 @@
       let costoPanel = parseFloat(document.getElementById("costo").value);
       let precioKwh = parseFloat(document.getElementById("precio").value);
       let degradacion = parseFloat(document.getElementById("degradacion").value);
-
-      document.getElementById("valor-costo").textContent = costoPanel;
-      document.getElementById("valor-precio").textContent = precioKwh.toFixed(2);
-      document.getElementById("valor-degradacion").textContent = degradacion;
 
       let n = 1000;
       let radiacion = generarNormal(n, 6, 0.5);
@@ -200,14 +203,7 @@
       });
     }
 
-    // Juego de la Pelota
     let rojas = 0, azules = 0, verdes = 0;
-
-    function mostrarJuego() {
-      document.getElementById("juegoPelotas").style.display = "block";
-      window.scrollTo({ top: document.getElementById("juegoPelotas").offsetTop, behavior: 'smooth' });
-    }
-
     function sacarPelota() {
       const r = Math.random();
       let color = "";
@@ -227,8 +223,10 @@
       document.getElementById("contadorJuego").textContent =
         `Rojo: ${rojas} | Azul: ${azules} | Verde: ${verdes}`;
     }
+  </script>
+</body>
+</html>
 
-    simular(); // Ejecutar al cargar
   </script>
 </body>
 </html>
